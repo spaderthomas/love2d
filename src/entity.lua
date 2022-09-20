@@ -20,24 +20,25 @@ local entity = {
 	if self.components then
 	  data.components = {}
 	  for name, component in pairs(self.components) do
-		local serialized_component = component:serialize()
+		local serialized_component = self.serialize(component)
 		data.components[name] = serialized_component
 	  end
 	end
 	
 	return data
   end,
-  add_component = function(self, component_type, data)
+  add_component = function(self, name, data)
 	data = data or {}
-	
-	local component = component_type:new(data)
+
+	local ComponentType = engine.class.find(name)
+	local component = ComponentType:new(data)
 	component.name = name
 	component.tag = data.tag or ''
 	component.uuid = data.uuid or engine.uuid()
 	component.entity = entity
 	component:init(data)
 	
-	entity.components[name] = component
+	self.components[name] = component
   end,
   ensure_component = function(self, name) engine.ensure_component(self, name) end,
   find_component = function(self, name)
@@ -52,7 +53,7 @@ local entity = {
 
 
 function engine.entity.define(name)
-  local class = engine.class(name)
+  local class = engine.class.define(name)
   class:include(entity)
 
   return class
@@ -130,7 +131,7 @@ local create_entity_impl = function(name, data)
   data.components = data.components or {}
   
   -- Find the matching type in Lua
-  EntityType = engine.classes[name]
+  EntityType = engine.class.classes[name]
   if not EntityType then
 	log.warn(string.format("could not find entity type: type = %s", name))
 	return nil

@@ -6,6 +6,14 @@ function engine.hotload.script(script)
   dofile(script)
 end
 
+function engine.hotload.directory(dir)
+  local files = love.filesystem.getDirectoryItems(dir)
+  for i, file in pairs(files) do
+	local full_path = dir .. '/' .. file
+	engine.hotload.script(full_path)
+  end
+end
+
 function engine.hotload.update()
   for script, modtime in pairs(engine.scripts) do
 	local info = love.filesystem.getInfo(script)
@@ -26,6 +34,8 @@ function engine.hotload.init()
   engine.hotload.script(engine.paths.script('utils'))
   engine.hotload.script(engine.paths.script('input'))
   engine.hotload.script(engine.paths.script('entity'))
+
   
-  engine.hotload.script(engine.paths.entity('Item'))
+  engine.hotload.directory(engine.paths.entities)
+  engine.hotload.directory(engine.paths.components)
 end

@@ -1,5 +1,5 @@
 -- Class stuff
-function engine.include_mixin(class, mixin)
+function engine.class.include(class, mixin)
   assert(type(mixin) == 'table', "mixin must be a table")
 
   for name, member in pairs(mixin) do
@@ -15,12 +15,12 @@ function engine.include_mixin(class, mixin)
   return class
 end
 
-function engine.is_instance_of(object, class)
+function engine.class.is_instance_of(object, class)
   local mt = getmetatable(object)
   return mt.__type == class
 end
 
-function engine.define_class(name)
+function engine.class.define(name)
   local class = {
 	name = name,
 	__static = {},
@@ -32,14 +32,14 @@ function engine.define_class(name)
   -- times
   class.__static.include = function(class_table, ...)
 	for _, mixin in ipairs({...}) do
-	  engine.include_mixin(class_table, mixin)
+	  engine.class.include(class_table, mixin)
 	end
 	return self
   end
 
   -- Find the class type
   class.__static.new = function(self)
-	class = engine.classes[self.name]
+	class = engine.class.classes[self.name]
 	if not class then
 	  return nil
 	end
@@ -50,7 +50,7 @@ function engine.define_class(name)
 	-- Give it a metatable
 	local metatable = {}
 	metatable.__index = function(tbl, key)
-	  return engine.classes[self.name].__instance[key]
+	  return engine.class.classes[self.name].__instance[key]
 	end
 	metatable.__type = self.name
 	setmetatable(instance, metatable)
@@ -76,16 +76,11 @@ function engine.define_class(name)
   }
   setmetatable(class, metatable)
 
+  engine.class.classes[name] = class
+
   return class
 end
 
-function engine.class(name)
-  local class = engine.define_class(name)
-  engine.classes[name] = class
-  return class
-end
-
-function engine.does_class_exist(name)
-  local class = engine.classes[name]
-  if class then return true else return false end
+function engine.class.find(name)
+  return engine.class.classes[name]
 end

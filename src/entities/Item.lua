@@ -1,4 +1,7 @@
 Item = engine.entity.define('Item')
+Item.components = {
+  'Click'
+}
 
 function Item:init(params)
   print('item init')

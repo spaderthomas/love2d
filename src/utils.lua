@@ -40,7 +40,7 @@ local vec2_mixin = {
   end
 }
 
-local vec2_impl = engine.class('vec2_impl')
+local vec2_impl = engine.class.define('vec2_impl')
 vec2_impl:include(vec2_mixin)
 
 engine.vec2 = function(x, y)

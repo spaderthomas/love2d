@@ -2,7 +2,8 @@ function love.load()
   -- Phase 0 init: Make sure that the game's base tables exist
   engine = {}
   engine.scripts = {}
-  engine.classes = {}
+  engine.class = {}
+  engine.class.classes = {}
   engine.fonts = {}
   engine.entity = {}
   engine.entity.entities = {}
