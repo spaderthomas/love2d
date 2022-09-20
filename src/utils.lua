@@ -3,47 +3,47 @@ local vec2_mixin = {
 	return self.x, self.y
   end,
   add = function(self, other)
-	return lows.vec2(self.x + other.x, self.y + other.y)
+	return engine.vec2(self.x + other.x, self.y + other.y)
   end,
   subtract = function(self, other)
 	if type(other) == 'table' then
-	  return lows.vec2(self.x - other.x, self.y - other.y)
+	  return engine.vec2(self.x - other.x, self.y - other.y)
 	elseif type(other) == 'number' then
-	  return lows.vec2(self.x - other, self.y - other)
+	  return engine.vec2(self.x - other, self.y - other)
 	end
   end,
   scale = function(self, scalar)
-	return lows.vec2(self.x * scalar, self.y * scalar)
+	return engine.vec2(self.x * scalar, self.y * scalar)
   end,
   truncate = function(self, digits)
-	return lows.vec2(truncate(self.x, digits), truncate(self.y, digits))
+	return engine.vec2(truncate(self.x, digits), truncate(self.y, digits))
   end,
   abs = function(self)
-	return lows.vec2(math.abs(self.x), math.abs(self.y))
+	return engine.vec2(math.abs(self.x), math.abs(self.y))
   end,
   equals = function(self, other, eps)
-	eps = eps or lows.deq_epsilon
+	eps = eps or engine.deq_epsilon
 	return double_eq(self.x, other.x, eps) and double_eq(self.y, other.y, eps)
   end,
   clampl = function(self, scalar)
-	return lows.vec2(math.max(scalar, self.x), math.max(scalar, self.y))
+	return engine.vec2(math.max(scalar, self.x), math.max(scalar, self.y))
   end,
   pairwise_mult = function(self, other)
-	return lows.vec2(self.x * other.x, self.y * other.y)
+	return engine.vec2(self.x * other.x, self.y * other.y)
   end,
   distance = function(self, other)
 	local d = self:subtract(other)
 	return math.sqrt(d.x * d.x + d.y * d.y)
   end,
   scr_to_gl = function(self)
-	return lows.vec2(self.x * 2 - 1, self.y * 2 - 1)
+	return engine.vec2(self.x * 2 - 1, self.y * 2 - 1)
   end
 }
 
-local vec2_impl = lows.class('vec2_impl')
+local vec2_impl = engine.class('vec2_impl')
 vec2_impl:include(vec2_mixin)
 
-lows.vec2 = function(x, y)
+engine.vec2 = function(x, y)
   local vec = vec2_impl:new()
 
   if type(x) == 'table' then
@@ -77,4 +77,24 @@ function table.deep_copy(t)
 	end
   end
   return t2
+end
+
+function engine.uuid()
+  local random = math.random
+  local template ='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+  local sub = function (c)
+	local v = (c == 'x') and random(0, 0xf) or random(8, 0xb)
+	return string.format('%x', v)
+  end
+  return string.gsub(template, '[xy]', sub)
+end
+
+function engine.split_string(str, sep)
+  output = {}
+  
+  for match in string.gmatch(str, "([^" .. sep .. "]+)") do
+	table.insert(output, match)
+  end
+  
+  return output
 end

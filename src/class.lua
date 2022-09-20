@@ -1,9 +1,9 @@
 -- Class stuff
-function lows.include_mixin(class, mixin)
+function engine.include_mixin(class, mixin)
   assert(type(mixin) == 'table', "mixin must be a table")
 
   for name, member in pairs(mixin) do
-    if name ~= "static" then
+    if name ~= "__static" then
 	  class[name] = member
 	end
   end
@@ -15,15 +15,12 @@ function lows.include_mixin(class, mixin)
   return class
 end
 
-function lows.is_instance_of(object, class)
+function engine.is_instance_of(object, class)
   local mt = getmetatable(object)
   return mt.__type == class
 end
 
-function lows.add_new_to_class(class, class_parent)
-end
-
-function lows.define_class(name)
+function engine.define_class(name)
   local class = {
 	name = name,
 	__static = {},
@@ -35,14 +32,14 @@ function lows.define_class(name)
   -- times
   class.__static.include = function(class_table, ...)
 	for _, mixin in ipairs({...}) do
-	  lows.include_mixin(class_table, mixin)
+	  engine.include_mixin(class_table, mixin)
 	end
 	return self
   end
 
   -- Find the class type
-  class.__static.new = function(self, params)
-	class = lows.classes[self.name]
+  class.__static.new = function(self)
+	class = engine.classes[self.name]
 	if not class then
 	  return nil
 	end
@@ -53,18 +50,11 @@ function lows.define_class(name)
 	-- Give it a metatable
 	local metatable = {}
 	metatable.__index = function(tbl, key)
-	  return lows.classes[self.name].__instance[key]
+	  return engine.classes[self.name].__instance[key]
 	end
 	metatable.__type = self.name
 	setmetatable(instance, metatable)
 
-	params = params or {}
-
-	-- Construct the entity with a do-nothing constructor
-	if instance.init then
-	  instance:init(params)
-	end
-	
 	return instance
   end
 
@@ -89,13 +79,13 @@ function lows.define_class(name)
   return class
 end
 
-function lows.class(name)
-  local class = lows.define_class(name)
-  lows.classes[name] = class
+function engine.class(name)
+  local class = engine.define_class(name)
+  engine.classes[name] = class
   return class
 end
 
-function lows.does_class_exist(name)
-  local class = lows.classes[name]
+function engine.does_class_exist(name)
+  local class = engine.classes[name]
   if class then return true else return false end
 end
