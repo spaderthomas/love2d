@@ -1,5 +1,6 @@
 Item = engine.entity.define('Item')
 Item.components = {
+  'Collider',
   'Click'
 }
 
@@ -8,5 +9,8 @@ function Item:init(params)
 end
 
 function Item:update(dt)
-  --print('item update')
+  if engine.input.was_pressed('a') then
+	print('a pressed')
+  end
+  --print(inspect(engine.input.is_down))
 end

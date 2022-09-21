@@ -177,7 +177,7 @@ function engine.entity.create(name, data)
   local entity = create_entity_impl(name, data)
   engine.entity.entities_to_add[entity.id] = entity
   
-  return entity.id
+  return entity
 end
 
 function engine.entity.create_anonymous(name, data)
