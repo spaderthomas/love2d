@@ -1,3 +1,5 @@
+ffi = require('ffi')
+
 function love.load()
   -- Phase 0 init: Make sure that the game's base tables exist
   engine = {}
@@ -7,11 +9,11 @@ function love.load()
   engine.fonts = {}
   engine.physics = {}
   engine.input = {}
+  engine.platform = {}
   engine.entity = {}
   engine.entity.entities = {}
   engine.entity.entities_to_add = {}
   engine.entity.entities_to_destroy = {}
-  engine.controllers = {}
   engine.next_entity_id = 1
 
   -- Phase 1: Load all the game's scripts
@@ -19,9 +21,15 @@ function love.load()
   dofile('src/path.lua')
   engine.hotload.init()
 
-  -- Phase 2: Initialize the game itself
-  engine.controllers.init()
+  package.cpath = string.format(
+	"%s;%s/?.%s",
+	package.cpath,
+	engine.paths.clibs, engine.platform.dll_extension())
 
+  require(engine.paths.lib('cimgui'))
+  imgui.love.Init('RGBA32')
+
+  -- Phase 2: Initialize the game itself
   engine.fonts.inconsolata = love.graphics.newFont(engine.paths.font('inconsolata.ttf'), 72)
   engine.fonts.apple_kid = love.graphics.newFont(engine.paths.font('apple_kid.ttf'), 72)
   love.graphics.setFont(engine.fonts.inconsolata)
@@ -41,7 +49,9 @@ function love.load()
 end
 
 function love.update(dt)
-  engine.controllers.update()
+  imgui.love.Update(dt)
+  imgui.NewFrame()
+  
   engine.hotload.update()
   engine.entity.update(dt)
   engine.physics.world:update(dt)
@@ -50,10 +60,15 @@ end
 
 function love.draw()
   love.graphics.setColor(1, 1, 1, 1)
-  love.graphics.print('Hello World!', 200, 250, 0)
+  love.graphics.print('Hello World!', 125, 250, 0)
 
   local collider = item:find_component('Collider')
   love.graphics.setColor(0.188, 0.103, 0.094) -- set the drawing color to green for the ground
   love.graphics.polygon("fill", collider.body:getWorldPoints(collider.shape:getPoints())) -- draw a "filled in" polygon using the ground's coordinates
+
+  
+  love.graphics.setColor(1,1,1)
+  imgui.Render()
+  imgui.love.RenderDrawLists()
 end
 

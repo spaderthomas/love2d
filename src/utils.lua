@@ -79,6 +79,12 @@ function table.deep_copy(t)
   return t2
 end
 
+function table.clear(t)
+  for k, _ in pairs(t) do
+	t[k] = nil
+  end
+end
+
 function engine.uuid()
   local random = math.random
   local template ='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'

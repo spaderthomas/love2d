@@ -5,12 +5,13 @@ Item.components = {
 }
 
 function Item:init(params)
-  print('item init')
+  self.buffer = ffi.new('char [256]')
 end
 
 function Item:update(dt)
-  if engine.input.was_pressed('a') then
-	print('a pressed')
-  end
-  --print(inspect(engine.input.is_down))
+  imgui.Begin('love2d')
+  imgui.Text('hello, world!')
+  imgui.InputText('hello', self.buffer, 256)
+  --print(ffi.string(self.buffer))
+  imgui.End()
 end
