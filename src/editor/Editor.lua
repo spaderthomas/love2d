@@ -26,7 +26,6 @@ function Editor:update()
 end
 
 function Editor:draw()
-  love.graphics.setColor(1, 1, 1, 1)
   imgui.Begin('love2d')
   imgui.love.Table(engine.frame)
   if imgui.CollapsingHeader_TreeNodeFlags('masks') then

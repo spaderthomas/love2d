@@ -488,7 +488,7 @@ end
 -- CUSTOM EXTENSIONS --
 -----------------------
 local function sync_buffer_set(buffer, value)
-  if not buffer then dbg() end
+  if not buffer then return end
   
   if type(value) == 'string' then
 	ffi.copy(buffer, value)
@@ -537,6 +537,14 @@ end
 
 local sync_infos = {}
 function L.SyncField(t, k)
+  local value = t[k]
+  if type(value) == 'table' then
+	for key, _ in pairs(value) do
+	  L.SyncField(value, key)
+	end
+	return
+  end
+  
   local address = table.address(t)
   local entry = sync_infos[address]
   if not entry then
@@ -581,12 +589,12 @@ end
 function L.Input(t, k)
   local address = table.address(t)
   local entry = sync_infos[address]
-  
+
+  if not entry then dbg() end
   local buffer = entry.fields[k]
   if not buffer then
-	local value = t[k]
-	imgui.Text(tostring(value))
-	return
+	L.SyncField(t, k)
+	buffer = entry.fields[k]
   end
 
   sync_buffer_render(buffer, entry.dirty, t, k)
@@ -703,7 +711,17 @@ local function draw_table_editor(editor)
   for key, value in pairs(editor.editing) do
 	table.insert(sorted_keys, key)
   end
-  table.sort(sorted_keys)
+  local sortf = function(a, b)
+	local va = editor.editing[a]
+	local ta = type(va) == 'table'
+	local vb = editor.editing[b]
+	local tb = type(vb) == 'table'
+	
+	if ta and not tb then return true end
+	if tb and not ta then return false end
+	return a < b
+  end
+  table.sort(sorted_keys, sortf)
 
   -- Display each KVP
   for _, key in ipairs(sorted_keys) do
@@ -734,12 +752,13 @@ local function draw_table_editor(editor)
       -- All other tables
 	  elseif type(value) == 'table' then
 		-- If this is the first time we've seen this sub-table, make an editor for it.
-		if not editor.children[key] then
+		local address = table.address(value)
+		if not editor.children[address] then
 		  local params = propagate_table_editor_params(editor)
-		  editor.children[key] = L.TableEditor(value, params)
+		  editor.children[address] = L.TableEditor(value, params)
 		  field_changed = true
 		end
-		local child = editor.children[key]
+		local child = editor.children[address]
 		child.editing = value
 
 		-- Modals! If the table's tree node is clicked, we want to draw it. If it's right clicked,
@@ -875,7 +894,12 @@ function L.TableEditor(editing, params)
 	  recurse = recurse and not self:is_self_referential(child)
 	  if recurse then
 		local params = propagate_table_editor_params(self)
-		self.children[key] = imgui.love.TableEditor(child, params)
+		local address = table.address(child)
+
+		-- Important: Child tables are indexed by address, not by key. If they were indexed by key,
+		-- then if the table was replaced at runtime, our entries in the SyncField bookkeeping would
+		-- point to a stale table.
+		self.children[address] = imgui.love.TableEditor(child, params)
 	  end
 	end,
 	replace_array_indices = function(self, on_replace)

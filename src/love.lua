@@ -55,6 +55,7 @@ function love.load()
 
   engine.entity.create('Editor')
   engine.entity.create('Item')
+  engine.entity.create('ItemSelector')
 end
 
 function love.update(dt)
@@ -73,6 +74,7 @@ end
 function love.draw()
   engine.entity.draw()
   
+  love.graphics.setColor(1, 1, 1, 1)
   imgui.Render()
   imgui.love.RenderDrawLists()
 end
