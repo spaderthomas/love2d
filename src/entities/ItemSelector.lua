@@ -27,7 +27,7 @@ function ItemSelector:update(dt)
 	end
 	
   elseif self.state == state.hovered then
-	local collider = entity:find_component('Collider')
+	local collider = self.hovered:find_component('Collider')
 	if not collider:is_point_inside(mx, my) then
 	  self.hovered = nil
 	  self.state = state.idle

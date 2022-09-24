@@ -16,6 +16,11 @@ function Editor:init()
 	depth = 2
   }
   self.mask_editor = imgui.love.TableEditor(engine.entity.masks, params)
+
+  self.frame_ignore = {
+	dt_buffer = true,
+	dt = true
+  }
 end
 
 function Editor:update()
@@ -27,7 +32,7 @@ end
 
 function Editor:draw()
   imgui.Begin('love2d')
-  imgui.love.Table(engine.frame)
+  imgui.love.Table(engine.frame, self.frame_ignore)
   if imgui.CollapsingHeader_TreeNodeFlags('masks') then
 	self.mask_editor:draw()
   end

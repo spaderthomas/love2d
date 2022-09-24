@@ -628,27 +628,29 @@ end
 function L.Table(t, ignore)
   ignore = ignore or {}
   for member, value in pairs(t) do
-	if not ignore[member] then
-	  local value_type = type(value)
-	  
-	  if value_type == 'string' then
-		imgui.love.VariableName(member)
-		imgui.SameLine()
-		imgui.PushTextWrapPos(0)
-		imgui.Text(value)
-		imgui.PopTextWrapPos()
-	  elseif value_type == 'number' then
-		imgui.love.VariableName(member)
-		imgui.SameLine()
-		imgui.Text(tostring(value))
-	  elseif value_type == 'boolean' then
-		imgui.love.VariableName(member)
-		imgui.SameLine()
-		imgui.Text(tostring(value))
-	  elseif value_type == 'table' then
-		imgui.love.TableMenuItem(member, value)
-	  end
+	if member == 'imgui_ignore' then goto continue end
+	if ignore[member] then goto continue end
+	local value_type = type(value)
+	
+	if value_type == 'string' then
+	  imgui.love.VariableName(member)
+	  imgui.SameLine()
+	  imgui.PushTextWrapPos(0)
+	  imgui.Text(value)
+	  imgui.PopTextWrapPos()
+	elseif value_type == 'number' then
+	  imgui.love.VariableName(member)
+	  imgui.SameLine()
+	  imgui.Text(tostring(value))
+	elseif value_type == 'boolean' then
+	  imgui.love.VariableName(member)
+	  imgui.SameLine()
+	  imgui.Text(tostring(value))
+	elseif value_type == 'table' then
+	  imgui.love.TableMenuItem(member, value)
 	end
+
+	::continue::
   end
 end
 

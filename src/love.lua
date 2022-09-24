@@ -37,6 +37,9 @@ function love.load()
   -- Phase 2: Initialize the game itself
   engine.entity.init()
   engine.image.init()
+  engine.frame.count = 0
+  engine.frame.dt_buffer = {}
+
   
   engine.fonts.inconsolata = love.graphics.newFont(engine.paths.font('inconsolata.ttf'), 72)
   engine.fonts.apple_kid = love.graphics.newFont(engine.paths.font('apple_kid.ttf'), 72)
@@ -60,6 +63,17 @@ end
 
 function love.update(dt)
   engine.frame.dt = dt
+  engine.frame.count = engine.frame.count + 1
+
+  local ring_buffer_index = engine.frame.count % 10 + 1
+  engine.frame.dt_buffer[ring_buffer_index] = dt
+  if engine.frame.count % 60 == 0 then
+	local sum = 0
+	for i, dt in pairs(engine.frame.dt_buffer) do
+	  sum = sum + dt
+	end
+	engine.frame.framerate = 10 / sum
+  end
   
   imgui.love.Update(dt)
   imgui.love.UpdateSyncedFields()
@@ -73,7 +87,7 @@ end
 
 function love.draw()
   engine.entity.draw()
-  
+
   love.graphics.setColor(1, 1, 1, 1)
   imgui.Render()
   imgui.love.RenderDrawLists()
