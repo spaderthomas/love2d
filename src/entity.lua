@@ -1,3 +1,16 @@
+function engine.entity.init()
+  engine.entity.masks = {
+	update = {
+	  editor = true,
+	  game = false
+	},
+	draw = {
+	  editor = true,
+	  game = true
+	},
+  }
+end
+
 local entity = {
   get_name = function(self) return self.name end,
   serialize = function(self)
@@ -48,6 +61,12 @@ local entity = {
 	serialize_field = function(entity_type, field_name)
 	  table.insert(entity_type.serialize_fields, field_name)
 	end,
+	set_mask = function(entity_type, mask)
+	  entity_type._internal.mask = mask
+	end,
+	get_mask = function(entity_type)
+	  return entity_type._internal.mask
+	end
   }
 }
 
@@ -55,6 +74,10 @@ local entity = {
 function engine.entity.define(name)
   local class = engine.class.define(name)
   class:include(entity)
+
+  -- Setup defaults for internal shit we keep track of
+  class._internal = {}
+  class:set_mask('game')
 
   return class
 end
@@ -99,11 +122,11 @@ function engine.entity.find(name)
   return find_entity_impl(name, nil, nil)
 end
 
-function engine.entity.find_by_id(id, entities)
+function engine.entity.find_by_id(id)
   return find_entity_impl(nil, id, nil)
 end
 
-function engine.entity.find_by_tag(tag, entities)
+function engine.entity.find_by_tag(tag)
   return find_entity_impl(nil, nil, tag)
 end
 
@@ -118,6 +141,15 @@ function engine.entity.find_by_any(descriptor)
 	  engine.log('@no_descriptor_to_find')
 	  return nil
    end
+end
+
+function engine.entity.collect(component)
+  local match = {}
+  for index, entity in pairs(engine.entity.entities) do
+	if entity:find_component(component) then table.insert(match, entity) end
+  end
+
+  return match
 end
 
 local next_entity_id = function()
@@ -205,13 +237,29 @@ end
 
 function engine.entity.update(dt)
   for id, entity in pairs(engine.entity.entities) do
+	if not engine.entity.masks.update[entity:get_mask()] then goto continue end
+	
 	entity:update(dt)
-
 	for name, component in pairs(entity.components) do
 	  if component.update then component:update(dt) end
 	end
+
+	::continue::
   end
 
   add_entities()
   destroy_entities()
+end
+
+function engine.entity.draw()
+  for id, entity in pairs(engine.entity.entities) do
+	if not engine.entity.masks.draw[entity:get_mask()] then goto continue end
+	
+	if entity.draw then entity:draw() end
+	for name, component in pairs(entity.components) do
+	  if component.draw then component:draw() end
+	end
+
+	::continue::
+  end
 end

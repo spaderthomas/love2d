@@ -36,8 +36,10 @@ function engine.hotload.init()
   engine.hotload.script(engine.paths.script('utils'))
   engine.hotload.script(engine.paths.script('input'))
   engine.hotload.script(engine.paths.script('entity'))
+  engine.hotload.script(engine.paths.script('image'))
 
   
   engine.hotload.directory(engine.paths.entities)
   engine.hotload.directory(engine.paths.components)
+  engine.hotload.directory(engine.paths.editor)
 end

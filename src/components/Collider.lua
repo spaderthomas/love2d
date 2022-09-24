@@ -12,6 +12,11 @@ end
 function Collider:update(dt)
 end
 
+function Collider:draw()
+  love.graphics.setColor(0.188, 0.103, 0.094)
+  love.graphics.polygon("fill", self.body:getWorldPoints(self.shape:getPoints()))
+end
+
 function Collider:is_point_inside(x, y)
   return self.fixture:testPoint(x, y)
 end

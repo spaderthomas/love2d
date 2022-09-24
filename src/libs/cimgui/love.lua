@@ -483,7 +483,416 @@ function L.RevertToOldNames()
     end
 end
 
-_common.sync = {}
-function L.SyncField(t, k)
+
+-----------------------
+-- CUSTOM EXTENSIONS --
+-----------------------
+local function sync_buffer_set(buffer, value)
+  if not buffer then dbg() end
   
+  if type(value) == 'string' then
+	ffi.copy(buffer, value)
+  elseif type(value) == 'number' then
+	buffer[0] = value
+  elseif type(value) == 'boolean' then
+	buffer[0] = value
+  end
 end
+
+local function sync_buffer_allocate(value)
+  local buffer
+  if type(value) == 'string' then
+	buffer = ffi.new('char [256]')
+  elseif type(value) == 'number' then
+	buffer =  ffi.new('float [1]')
+  elseif type(value) == 'boolean' then
+	buffer = ffi.new('bool [1]')
+  end
+
+  sync_buffer_set(buffer, value)
+  return buffer
+end
+
+local function sync_buffer_get(buffer, value)
+  if type(value) == 'string' then
+	return ffi.string(buffer)
+  elseif type(value) == 'number' then
+	return buffer[0]
+  elseif type(value) == 'boolean' then
+	return buffer[0]
+  end
+end
+
+local function sync_buffer_render(buffer, dirty, t, k)
+  local value = t[k]
+  local id = '##' .. table.address(t) .. ':' .. k
+  if type(value) == 'string' then
+	if imgui.InputText(id, buffer, 256) then dirty[k] = true end
+  elseif type(value) == 'number' then
+	if imgui.InputFloat(id, buffer) then dirty[k] = true end
+  elseif type(value) == 'boolean' then
+	if imgui.Checkbox(id, buffer) then dirty[k] = true end
+  end
+end
+
+local sync_infos = {}
+function L.SyncField(t, k)
+  local address = table.address(t)
+  local entry = sync_infos[address]
+  if not entry then
+	sync_infos[address] = {
+	  tbl = t,
+	  fields = {},
+	  dirty = {}
+	}
+	entry = sync_infos[address]
+  end
+
+  local field = entry.fields[k]
+  if not field then
+	entry.fields[k] = sync_buffer_allocate(t[k])
+	return
+  end
+end
+
+function L.UpdateSyncedFields()
+  for address, table_entry in pairs(sync_infos) do
+	for field, buffer in pairs(table_entry.fields) do
+	  local lua_value = table_entry.tbl[field]
+	  
+	  if table_entry.dirty[field] then 
+		-- Pull value from C if the corresponding input field returned a change
+		local next_value = sync_buffer_get(buffer, lua_value)
+		table_entry.tbl[field] = next_value
+		
+		-- Mark that we're now up to date
+		table_entry.dirty[field] = nil
+	  else
+		-- Otherwise, set C buffer to what's in Lua. This is really inefficient!
+		-- Every frame, every field on the UI is memcpy'd into C. We can avoid this the other
+		-- way around, because we have simple change detection from ImGui, but unless
+		-- we do something equally heavy we have no way of doing change detection on pure Lua 
+		sync_buffer_set(buffer, lua_value)
+	  end
+	end
+  end
+end
+
+function L.Input(t, k)
+  local address = table.address(t)
+  local entry = sync_infos[address]
+  
+  local buffer = entry.fields[k]
+  if not buffer then
+	local value = t[k]
+	imgui.Text(tostring(value))
+	return
+  end
+
+  sync_buffer_render(buffer, entry.dirty, t, k)
+end
+
+
+------------
+-- TABLES --
+------------
+function L.VariableName(name, color)
+   color = color or engine.color32(0, 200, 200, 255)
+   imgui.PushStyleColor_U32(imgui.ImGuiCol_Text, color)
+   imgui.Text(tostring(name))
+   imgui.PopStyleColor()
+   if imgui.IsItemHovered() then
+	 if true then return end
+	 local padding = imgui.ImVec2_Float(5, 3)
+	 local size = imgui.GetItemRectSize();
+	 local min = imgui.GetItemRectMin();
+	 min = min - padding
+	 max = min + size + padding
+
+	 local color4 = imgui.ImVec4_Float(0, 1, 0, .3)
+	 local color = imgui.ColorConvertFloat4ToU32(color4)
+	 local draw_list = imgui.ImDrawList()
+	 imgui.C.ImDrawList_AddRectFilled(draw_list, min, max, color, 0, 0)
+   end
+
+end
+
+function L.Table(t, ignore)
+  ignore = ignore or {}
+  for member, value in pairs(t) do
+	if not ignore[member] then
+	  local value_type = type(value)
+	  
+	  if value_type == 'string' then
+		imgui.love.VariableName(member)
+		imgui.SameLine()
+		imgui.PushTextWrapPos(0)
+		imgui.Text(value)
+		imgui.PopTextWrapPos()
+	  elseif value_type == 'number' then
+		imgui.love.VariableName(member)
+		imgui.SameLine()
+		imgui.Text(tostring(value))
+	  elseif value_type == 'boolean' then
+		imgui.love.VariableName(member)
+		imgui.SameLine()
+		imgui.Text(tostring(value))
+	  elseif value_type == 'table' then
+		imgui.love.TableMenuItem(member, value)
+	  end
+	end
+  end
+end
+
+function L.TableMenuItem(name, t)
+  local address = table.address(t)
+  local imgui_id = name .. '##' .. address
+
+  if imgui.TreeNode_Str(imgui_id) then
+	imgui.love.Table(t)
+	imgui.TreePop()
+  end
+end
+
+
+------------------
+-- TABLE EDITOR --
+------------------
+local function table_editor_padding(editor)
+  -- Very hacky way to line up the inputs: Figure out the largest key, then when drawing a key,
+  -- use the difference in length between current key and largest key as a padding. Does not work
+  -- that well, but kind of works
+  local padding_threshold = 12
+  local padding_target = 0
+  for key, value in pairs(editor.editing) do
+	local key_len = 0
+	if type(key) == 'string' then key_len = #key end
+	if type(key) == 'number' then key_len = #tostring(key) end -- whatever
+	if type(key) == 'boolean' then key_len = #tostring(key) end
+	padding_target = math.max(padding_target, key_len)
+  end
+
+  local min_padding = 60
+  local padding = math.max(padding_target * 5, min_padding)
+  return padding
+end
+
+local function propagate_table_editor_params(editor)
+  local params = {}
+  params.add_field_on_rclick = editor.add_field_on_rclick
+  params.depth = editor.depth + 1
+  params.seen = table.shallow_copy(editor.seen)
+  return params
+end
+
+local function draw_table_editor(editor)
+  -- If the user right clicked a sub-table, we show a prompt to add an entry to the sub-table.
+  -- Record whether a field was added in this way to return to the user
+  local field_added = false
+  if editor.add_field_on_rclick then field_added = imgui.internal.draw_table_field_add(editor) end
+
+  local field_changed = false
+
+  -- Figure out ImGui stuff for alignment
+  local cursor = imgui.GetCursorPosX()
+  local padding = table_editor_padding(editor)
+  local open_item_context_menu = false
+
+  -- Sort the keys
+  local sorted_keys = {}
+  for key, value in pairs(editor.editing) do
+	table.insert(sorted_keys, key)
+  end
+  table.sort(sorted_keys)
+
+  -- Display each KVP
+  for _, key in ipairs(sorted_keys) do
+	local value = editor.editing[key]
+
+	-- Assign a UNIQUE label to this entry
+	local label = string.format('##%s', table.hash_entry(editor.editing, tostring(key)))
+
+	if not editor:is_field_ignored(key) then
+	  -- Strings
+	  if type(value) ~= 'table' then
+		L.VariableName(key)
+		imgui.SameLine()
+		imgui.SetCursorPosX(cursor + padding)
+		imgui.PushItemWidth(-1)
+		L.Input(editor.editing, key)
+		imgui.PopItemWidth()
+
+	  elseif editor:is_self_referential(value) then
+		L.VariableName(key)
+		imgui.SameLine()
+		imgui.SetCursorPosX(cursor + padding)
+		imgui.PushItemWidth(-1)
+		
+		imgui.Text('self referential')
+		imgui.PopItemWidth()
+		
+      -- All other tables
+	  elseif type(value) == 'table' then
+		-- If this is the first time we've seen this sub-table, make an editor for it.
+		if not editor.children[key] then
+		  local params = propagate_table_editor_params(editor)
+		  editor.children[key] = L.TableEditor(value, params)
+		  field_changed = true
+		end
+		local child = editor.children[key]
+		child.editing = value
+
+		-- Modals! If the table's tree node is clicked, we want to draw it. If it's right clicked,
+		-- we want to open a popup where you can add new fields.
+		local open_context_menu = false
+		
+		local key_for_display = key
+		if editor._replace_array_indices then
+		  key_for_display = editor._on_replace(key)
+		end
+		  
+		local unique_treenode_id = key_for_display .. label
+		local on_collapsed = function()
+		  if imgui.IsItemClicked(1) then open_context_menu = true end
+		  draw_table_editor(child, seen)
+		end
+
+		-- This is a little wonky. Normal use case for this:
+		-- - Make a table editor for a whole table.
+		-- - Show all table items every frame
+		-- - Use CollapsingHeader for top level sub-tables, because it is pretty
+		-- - Use TreeNode for sub-tables in _that_, because nested CollapsingHeader is confusing
+		if child.depth and child.depth > 2 then
+		  if imgui.TreeNode_Str(unique_treenode_id) then
+			on_collapsed()
+			imgui.TreePop()
+		  end
+		else
+		  if imgui.CollapsingHeader_TreeNodeFlags(unique_treenode_id) then
+			on_collapsed()
+		  end
+		end
+
+		-- At this point, table + header are drawn. We've just got to show any popups.
+		-- Show the context menu
+		local open_field_editor = false
+		local context_menu_id = label .. ':context_menu'
+		if open_context_menu then
+		  imgui.OpenPopup(context_menu_id)
+		end
+		if imgui.BeginPopup(context_menu_id) then
+		  if imgui.MenuItem('Add field') then
+			open_field_editor = true
+		  end
+		  imgui.EndPopup()
+		end
+
+		-- Show the aforementioned field editor modal
+		local field_editor_id = label .. ':field_editor'
+		if open_field_editor then
+		  imgui.OpenPopup(field_editor_id)
+		end
+		if imgui.BeginPopup(field_editor_id) then
+		  if imgui.internal.draw_table_field_add(child) then
+			imgui.CloseCurrentPopup()
+		  end
+		  imgui.EndPopup()
+		end
+
+		::done_table::
+	  end
+	end
+  end
+
+  -- If any variable was right clicked, we show a little context menu where you can delete it
+  local item_context_menu_id = '##' .. table.hash_entry(editor.editing, editor.context_menu_item)
+  if open_item_context_menu then
+	imgui.OpenPopup(item_context_menu_id)
+  end
+  if imgui.BeginPopup(item_context_menu_id) then
+	if imgui.Button('Delete') then
+	  editor.editing[editor.context_menu_item] = nil
+	  editor.context_menu_item = nil
+	  imgui.CloseCurrentPopup()
+	end
+	imgui.EndPopup()
+  end
+
+  return field_added, field_changed
+end
+
+function L.TableEditor(editing, params)
+  if not params then params = {} end
+  local editor = {
+	is_table_editor = true,
+	editing = editing,
+	children = {},
+
+	-- Mapping of string -> bool. Any fields in this table won't be
+	-- displayed with the table editor
+	imgui_ignore = params.imgui_ignore or {},
+	
+	-- If this is enabled, when you right click a sub-table, you get a
+	-- popup to add a new field
+	add_field_on_rclick = params.add_field_on_rclick or false,
+	
+	-- Depth from the root table of this tree of editors
+	depth = params.depth or 1,
+
+	-- When a variable is right clicked, we show a context menu. This keeps track
+	-- of the variable that the context menu was opened for.
+	context_menu_item = nil,
+
+	-- A list of tables we've already seen in this tree, to avoid infinite
+	-- self-reference
+	seen = params.seen or {},
+	
+	draw = function(self) return draw_table_editor(self) end,
+
+	is_field_ignored = function(self, k)
+	  local value = self.editing[k]
+	  
+	  local ignore = false
+	  ignore = ignore or self.imgui_ignore[k]
+	  ignore = ignore or self.editing.imgui_ignore and self.editing.imgui_ignore[k]
+	  ignore = ignore or type(value) == 'function'
+	  ignore = ignore or type(value) == 'table' and value.is_table_editor
+	  return ignore
+	end,
+	is_self_referential = function(self, t)
+	  local address = table.address(t)
+	  return self.seen[address]
+	end,
+	add_child = function(self, key, child)
+	  if type(child) ~= 'table' then
+		L.SyncField(self.editing, key)
+		return
+	  end
+	  
+	  recurse = recurse and not (child == self.editing)
+	  recurse = recurse and not self.editing.is_table_editor
+	  recurse = recurse and not self:is_field_ignored(key)
+	  recurse = recurse and not self:is_self_referential(child)
+	  if recurse then
+		local params = propagate_table_editor_params(self)
+		self.children[key] = imgui.love.TableEditor(child, params)
+	  end
+	end,
+	replace_array_indices = function(self, on_replace)
+	  self._replace_array_indices = true
+	  self._on_replace = on_replace
+	end
+  }
+
+  editor.imgui_ignore.imgui_ignore = true
+  editor.imgui_ignore.__type = true
+  editor.seen[table.address(editor.editing)] = true
+
+  -- Each child member that is a non-recursive table also gets an editor
+  for key, value in pairs(editing) do
+	editor:add_child(key, value)
+  end
+
+  return editor
+end
+

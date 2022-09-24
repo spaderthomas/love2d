@@ -50,7 +50,11 @@ function engine.class.define(name)
 	-- Give it a metatable
 	local metatable = {}
 	metatable.__index = function(tbl, key)
-	  return engine.class.classes[self.name].__instance[key]
+	  local instance = engine.class.classes[self.name].__instance[key]
+	  if instance then return instance end
+
+	  local static = engine.class.classes[self.name].__static[key]
+	  if static then return static end
 	end
 	metatable.__type = self.name
 	setmetatable(instance, metatable)

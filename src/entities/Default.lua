@@ -1,4 +1,6 @@
-Default = engine.class.define('Default')
+Default = engine.entity.define('Default')
+Default.components = {}
+Default.serialize_fields = {}
 
 function Default:init(params)
 end

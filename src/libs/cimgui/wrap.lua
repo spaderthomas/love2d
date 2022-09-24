@@ -7,6 +7,7 @@ local env = {
     error = error,
     getmetatable = getmetatable,
     setmetatable = setmetatable,
+    print = print,
     string = string,
     table = table,
     love = love,

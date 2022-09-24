@@ -85,6 +85,15 @@ function table.clear(t)
   end
 end
 
+function table.address(t)
+  if not t then return '0x00000000' end
+  return engine.split_string(tostring(t), ' ')[2]
+end
+
+function table.hash_entry(t, k)
+  return string.format('%s.%s', table.address(t), k)
+end
+
 function engine.uuid()
   local random = math.random
   local template ='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
@@ -95,6 +104,18 @@ function engine.uuid()
   return string.gsub(template, '[xy]', sub)
 end
 
+function engine.uuid_imgui()
+  local random = math.random
+  local template ='##xxxxxxxx-xxxx-4xxx-yxxx'
+  local sub = function (c)
+	local v = (c == 'x') and random(0, 0xf) or random(8, 0xb)
+	return string.format('%x', v)
+  end
+
+  local subbed = string.gsub(template, '[xy]', sub)
+  return subbed
+end
+
 function engine.split_string(str, sep)
   output = {}
   
@@ -103,4 +124,19 @@ function engine.split_string(str, sep)
   end
   
   return output
+end
+
+function engine.color32(r, g, b, a)
+  if type(r) == 'table' then
+	local color = r
+	r = color.r
+	g = color.g
+	b = color.b
+	a = color.a
+  end
+  a = math.min(a, 255) * math.pow(2, 24)
+  b = math.min(b, 255) * math.pow(2, 16)
+  g = math.min(g, 255) * math.pow(2, 8)
+  r = math.min(r, 255)
+  return r + g + b + a
 end
